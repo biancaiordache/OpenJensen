@@ -1,15 +1,24 @@
-# badclaude
+# OpenWhip
 
 ![Whip divider](assets/divider.png)
 
 Sometimes claude code is going too shlow, and you must whip him into shape..
 
+> Renamed from `badclaude` to `openwhip`.
+> The old command/package is deprecated and kept temporarily for migration.
+
 ## Install + run
 
 ```bash
-npm install -g badclaude
-badclaude
+npm install -g openwhip
+openwhip
 ```
+
+## Platform support
+
+- macOS
+- Windows
+- Linux (X11): install `xdotool` for keyboard automation (`sudo apt install xdotool`)
 
 ## Controls
 

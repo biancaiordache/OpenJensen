@@ -52,6 +52,12 @@ function refocusPreviousApp() {
           console.warn('refocus previous app (Cmd+Tab) failed:', err.message);
         }
       });
+    } else if (process.platform === 'linux') {
+      execFile('xdotool', ['key', '--clearmodifiers', 'alt+Tab'], err => {
+        if (err) {
+          console.warn('refocus previous app (Alt+Tab) failed. Install xdotool:', err.message);
+        }
+      });
     }
   };
   setTimeout(run, delayMs);
@@ -66,7 +72,7 @@ function createTrayIconFallback() {
       return img;
     }
   }
-  console.warn('badclaude: icon/Template.png missing or invalid');
+  console.warn('openwhip: icon/Template.png missing or invalid');
   return nativeImage.createEmpty();
 }
 
@@ -100,7 +106,7 @@ async function getTrayIcon() {
       } catch (e) {
         console.warn('AppIcon.icns Quick Look thumbnail failed:', e?.message || e);
       }
-      const tmp = path.join(os.tmpdir(), 'badclaude-tray.icns');
+      const tmp = path.join(os.tmpdir(), 'openwhip-tray.icns');
       try {
         fs.copyFileSync(file, tmp);
         const t = await tryIcnsTrayImage(tmp);
@@ -192,6 +198,8 @@ function sendMacro() {
     sendMacroWindows(chosen);
   } else if (process.platform === 'darwin') {
     sendMacroMac(chosen);
+  } else if (process.platform === 'linux') {
+    sendMacroLinux(chosen);
   }
 }
 
@@ -223,26 +231,54 @@ function sendMacroWindows(text) {
 
 function sendMacroMac(text) {
   const escaped = text.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-  const script = [
+  const interruptScript = [
     'tell application "System Events"',
-    '  key code 8 using {command down}', // Cmd+C
-    '  delay 0.03',
+    '  key code 8 using {control down}', // Ctrl+C interrupt
+    'end tell'
+  ].join('\n');
+  const typeAndEnterScript = [
+    'tell application "System Events"',
     `  keystroke "${escaped}"`,
     '  key code 36', // Enter
     'end tell'
   ].join('\n');
 
-  execFile('osascript', ['-e', script], err => {
+  execFile('osascript', ['-e', interruptScript], err => {
     if (err) {
       console.warn('mac macro failed (enable Accessibility for terminal/app):', err.message);
+      return;
     }
+
+    setTimeout(() => {
+      execFile('osascript', ['-e', typeAndEnterScript], err2 => {
+        if (err2) {
+          console.warn('mac macro failed (enable Accessibility for terminal/app):', err2.message);
+        }
+      });
+    }, 300);
   });
+}
+
+function sendMacroLinux(text) {
+  execFile(
+    'xdotool',
+    [
+      'key', '--clearmodifiers', 'ctrl+c',
+      'type', '--delay', '1', '--clearmodifiers', '--', text,
+      'key', 'Return',
+    ],
+    err => {
+      if (err) {
+        console.warn('linux macro failed. Install xdotool:', err.message);
+      }
+    }
+  );
 }
 
 // ── App lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   tray = new Tray(await getTrayIcon());
-  tray.setToolTip('Bad Claude – click for whip');
+  tray.setToolTip('OpenWhip - click for whip');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Quit', click: () => app.quit() },
