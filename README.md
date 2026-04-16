@@ -1,6 +1,8 @@
 # OpenJensen
 
-![OpenJensen](assets/banner.png)
+<p align="center">
+  <img src="assets/banner.png" width="400" alt="OpenJensen">
+</p>
 
 Jensen Huang floats on your screen and motivates your AI coding assistant with inspirational quotes.
 
