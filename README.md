@@ -1,5 +1,7 @@
 # OpenJensen
 
+![OpenJensen](assets/banner.png)
+
 Jensen Huang floats on your screen and motivates your AI coding assistant with inspirational quotes.
 
 A fork of [OpenWhip](https://github.com/GitFrog1111/OpenWhip) — instead of a whip, you get Jensen Huang's face following your cursor, and instead of whip cracks, you get clips of Jensen from a podcast.
@@ -35,7 +37,7 @@ OpenJensen needs Accessibility permissions to send keystrokes to your terminal:
 ## Controls
 
 - **Click tray icon**: toggle Jensen on/off on your screen
-- **Cmd+Shift+J** (or Ctrl+Shift+J on Windows/Linux): send a Jensen quote to the focused terminal
+- **Cmd+Shift+J**: send a Jensen quote to the focused terminal
 - **Right-click tray icon** > Quit: close OpenJensen
 
 ## Quotes
@@ -50,9 +52,7 @@ Jensen sends one of 16 inspirational quotes, randomly selected:
 
 ## Platform support
 
-- **macOS**: fully supported (uses AppleScript for keystroke automation)
-- **Windows**: supported (uses Win32 API via koffi)
-- **Linux**: supported (requires `xdotool`: `sudo apt install xdotool`)
+- **macOS** only (uses AppleScript for keystroke automation)
 
 ## Credits
 

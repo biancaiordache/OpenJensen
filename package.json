@@ -9,9 +9,7 @@
     "goodjensen": "bin/openjensen.js"
   },
   "os": [
-    "darwin",
-    "linux",
-    "win32"
+    "darwin"
   ],
   "engines": {
     "node": ">=18.0.0"
@@ -46,7 +44,6 @@
     "pack": "npm pack"
   },
   "dependencies": {
-    "electron": "^33.0.0",
-    "koffi": "^2.9.0"
+    "electron": "^33.0.0"
   }
 }
