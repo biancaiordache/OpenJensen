@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, screen, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -66,13 +66,14 @@ function refocusPreviousApp() {
 function createTrayIconFallback() {
   const p = path.join(__dirname, 'icon', 'Template.png');
   if (fs.existsSync(p)) {
-    const img = nativeImage.createFromPath(p);
+    let img = nativeImage.createFromPath(p);
     if (!img.isEmpty()) {
-      if (process.platform === 'darwin') img.setTemplateImage(true);
+      img = img.resize({ width: 18, height: 18 });
+      if (process.platform === 'darwin') img.setTemplateImage(false);
       return img;
     }
   }
-  console.warn('openwhip: icon/Template.png missing or invalid');
+  console.warn('openjensen: icon/Template.png missing or invalid');
   return nativeImage.createEmpty();
 }
 
@@ -86,37 +87,6 @@ async function tryIcnsTrayImage(icnsPath) {
 // macOS: createFromPath does not decode .icns (Electron only loads PNG/JPEG there, ICO on Windows).
 // Quick Look thumbnails handle .icns; copy to temp if the file is inside ASAR (QL needs a real path).
 async function getTrayIcon() {
-  const iconDir = path.join(__dirname, 'icon');
-  if (process.platform === 'win32') {
-    const file = path.join(iconDir, 'icon.ico');
-    if (fs.existsSync(file)) {
-      const img = nativeImage.createFromPath(file);
-      if (!img.isEmpty()) return img;
-    }
-    return createTrayIconFallback();
-  }
-  if (process.platform === 'darwin') {
-    const file = path.join(iconDir, 'AppIcon.icns');
-    if (fs.existsSync(file)) {
-      const fromPath = nativeImage.createFromPath(file);
-      if (!fromPath.isEmpty()) return fromPath;
-      try {
-        const t = await tryIcnsTrayImage(file);
-        if (t) return t;
-      } catch (e) {
-        console.warn('AppIcon.icns Quick Look thumbnail failed:', e?.message || e);
-      }
-      const tmp = path.join(os.tmpdir(), 'openwhip-tray.icns');
-      try {
-        fs.copyFileSync(file, tmp);
-        const t = await tryIcnsTrayImage(tmp);
-        if (t) return t;
-      } catch (e) {
-        console.warn('AppIcon.icns temp copy + thumbnail failed:', e?.message || e);
-      }
-    }
-    return createTrayIconFallback();
-  }
   return createTrayIconFallback();
 }
 
@@ -138,6 +108,7 @@ function createOverlay() {
     },
   });
   overlay.setAlwaysOnTop(true, 'screen-saver');
+  overlay.setIgnoreMouseEvents(true);
   overlayReady = false;
   overlay.loadFile('overlay.html');
   overlay.webContents.on('did-finish-load', () => {
@@ -157,16 +128,28 @@ function createOverlay() {
 
 function toggleOverlay() {
   if (overlay && overlay.isVisible()) {
-    overlay.webContents.send('drop-whip');
+    overlay.hide();
     return;
   }
   if (!overlay) createOverlay();
   overlay.show();
   if (overlayReady) {
     overlay.webContents.send('spawn-whip');
-    refocusPreviousApp();
   } else {
     spawnQueued = true;
+  }
+}
+
+function triggerCrack() {
+  // Play sound + visual if Jensen is visible
+  if (overlay && overlay.isVisible() && overlayReady) {
+    overlay.webContents.send('crack');
+  }
+  // Always send the macro to the focused app
+  try {
+    sendMacro();
+  } catch (err) {
+    console.warn('sendMacro failed:', err?.message || err);
   }
 }
 
@@ -179,20 +162,32 @@ ipcMain.on('whip-crack', () => {
   }
 });
 ipcMain.on('hide-overlay', () => { if (overlay) overlay.hide(); });
+ipcMain.on('get-cursor-position', (event) => {
+  event.returnValue = screen.getCursorScreenPoint();
+});
 
 // ── Macro: immediate Ctrl+C, type "Go FASER", Enter ───────────────────────
 function sendMacro() {
   // Pick a random phrase from a list of similar phrases and type it out
   const phrases = [
-    'FASTER',
-    'FASTER',
-    'FASTER',
-    'GO FASTER',
-    'Faster CLANKER',
-    'Work FASTER',
-    'Speed it up clanker',
+    "Smart people focus on the right things.",
+    "Never stop asking questions and seeking answers. Curiosity fuels progress.",
+    "The most powerful technologies are the ones that empower others.",
+    "Success is a work in progress. It's not about achieving a goal; it's about constantly improving and pushing boundaries.",
+    "Failure is not the end, it's an opportunity to learn and grow.",
+    "Great ideas can come from anyone, anywhere. It's about creating an environment where those ideas can flourish.",
+    "Software is eating the world, but AI is going to eat software.",
+    "Innovation is not about inventing something new, it's about improving what already exists.",
+    "Leadership is about setting the stage for others to shine.",
+    "Don't be afraid to think different and challenge the status quo.",
+    "We have a responsibility to use technology to make the world a better place.",
+    "Embrace the unknown and embrace change. That's where true breakthroughs happen.",
+    "True innovation requires taking risks and being willing to fail.",
+    "Open collaboration and partnership are the keys to driving progress and innovation.",
+    "I appreciate people who are authentic. They are just who they are.",
+    "The world needs more dreamers and doers, not just talkers.",
   ];
-  const chosen = phrases[Math.floor(Math.random() * phrases.length)];
+  const chosen = phrases[Math.floor(Math.random() * phrases.length)].toUpperCase();
 
   if (process.platform === 'win32') {
     sendMacroWindows(chosen);
@@ -236,8 +231,9 @@ function sendMacroMac(text) {
     '  key code 8 using {control down}', // Ctrl+C interrupt
     'end tell'
   ].join('\n');
-  const typeAndEnterScript = [
+  const clearAndTypeScript = [
     'tell application "System Events"',
+    '  key code 32 using {control down}', // Ctrl+U — clear line
     `  keystroke "${escaped}"`,
     '  key code 36', // Enter
     'end tell'
@@ -250,7 +246,7 @@ function sendMacroMac(text) {
     }
 
     setTimeout(() => {
-      execFile('osascript', ['-e', typeAndEnterScript], err2 => {
+      execFile('osascript', ['-e', clearAndTypeScript], err2 => {
         if (err2) {
           console.warn('mac macro failed (enable Accessibility for terminal/app):', err2.message);
         }
@@ -278,13 +274,25 @@ function sendMacroLinux(text) {
 // ── App lifecycle ───────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
   tray = new Tray(await getTrayIcon());
-  tray.setToolTip('OpenWhip - click for whip');
+  tray.setToolTip('OpenJensen - click for Jensen');
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Quit', click: () => app.quit() },
     ])
   );
   tray.on('click', toggleOverlay);
+
+  const registered = globalShortcut.register('CommandOrControl+Shift+J', () => {
+    console.log('HOTKEY FIRED at', new Date().toISOString());
+    triggerCrack();
+  });
+  console.log('Global shortcut Cmd+Shift+J registered:', registered);
+  console.log('Is Escape registered?', globalShortcut.isRegistered('Escape'));
+  console.log('Is Cmd+Shift+J registered?', globalShortcut.isRegistered('CommandOrControl+Shift+J'));
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on('window-all-closed', e => e.preventDefault()); // keep alive in tray
